@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Data Dashboard</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav>
+        <div class="logo">SolarTracker<span> IoT</span></div>
+        <ul>
+            <li><a href="/index.html">Opening</a></li>
+            <li><a href="/about.html">About</a></li>
+            <li><a href="/tracker.html">3D Tracker</a></li>
+            <li><a href="/dashboard.html" class="active">Data Analysis</a></li>
+        </ul>
+    </nav>
+
+    <section class="dashboard-grid">
+        <div class="chart-card">
+            <h3 style="margin-bottom: 15px; font-size: 1.2rem; color: #ffdd00;">Luminasitas Cahaya (Lux)</h3>
+            <canvas id="luxChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3 style="margin-bottom: 15px; font-size: 1.2rem; color: var(--accent);">Tegangan Output Panel (Volt)</h3>
+            <canvas id="voltChart"></canvas>
+        </div>
+    </section>
+
+    <section style="padding: 0 8% 40px 8%;">
+        <div class="chart-card">
+            <h3 style="color: var(--accent); margin-bottom: 15px; font-size: 1.2rem;">Log Data</h3>
+            <div style="max-height: 400px; overflow-y: auto; padding-right: 5px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Lux</th>
+                            <th>Volt</th>
+                            <th>Posisi Azimuth</th>
+                            <th>Posisi Elevation</th>
+                            <th>Keterangan Sistem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mainLogBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Set Default Font & Text Color Chart.js agar seragam dengan tema gelap CSS kamu
+        Chart.defaults.font.family = "'Poppins', sans-serif";
+        Chart.defaults.color = '#ffffff';
+
+        const chartAnimation = {
+            duration: 400, 
+            easing: 'easeInOutQuart'
+        };
+
+        // Inisialisasi Grafik Lux (Kuning/Sinar Matahari)
+        const ctxLux = document.getElementById('luxChart').getContext('2d');
+        const luxChartInstance = new Chart(ctxLux, {
+            type: 'line',
+            data: {
+                labels: [], 
+                datasets: [{
+                    label: 'Intensitas Cahaya (Lux)',
+                    data: [],
+                    borderColor: '#ffdd00',
+                    backgroundColor: 'rgba(255, 221, 0, 0.08)', 
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#ffdd00'
+                }]
+            },
+            options: { 
+                responsive: true, 
+                animation: chartAnimation,
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        // Inisialisasi Grafik Tegangan Panel (Cyan/Sesuai --accent CSS)
+        const ctxVolt = document.getElementById('voltChart').getContext('2d');
+        const voltChartInstance = new Chart(ctxVolt, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Tegangan (Volt)',
+                    data: [],
+                    borderColor: '#00f2fe',
+                    backgroundColor: 'rgba(0, 242, 254, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#00f2fe'
+                }]
+            },
+            options: { 
+                responsive: true, 
+                animation: chartAnimation,
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        // Hapus const gateway dan initWebSocket()
+setInterval(() => {
+    fetch('/api/telemetry')
+    .then(response => response.json())
+    .then(data => {
+        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const logBody = document.getElementById('mainLogBody');
+        
+        const azVal = Number(data.az) || 0;
+        const elVal = Number(data.el) || 0;
+        const luxVal = Number(data.lux) || 0;
+        const voltVal = Number(data.volt) || 0;
+
+        if(logBody) {
+            const row = logBody.insertRow(0);
+            row.innerHTML = `<td>${nowTime}</td><td>${luxVal.toFixed(0)}</td><td>${voltVal.toFixed(2)} V</td><td>${azVal.toFixed(1)}°</td><td>${elVal.toFixed(1)}°</td><td style="color: #00ff88;">Tracking Berkala</td>`;
+            if (logBody.rows.length > 25) logBody.deleteRow(25);
+        }
+
+        luxChartInstance.data.labels.push(nowTime);
+        voltChartInstance.data.labels.push(nowTime);
+        luxChartInstance.data.datasets[0].data.push(luxVal);
+        voltChartInstance.data.datasets[0].data.push(voltVal);
+
+        if (luxChartInstance.data.labels.length > 10) {
+            luxChartInstance.data.labels.shift();
+            luxChartInstance.data.datasets[0].data.shift();
+            voltChartInstance.data.labels.shift();
+            voltChartInstance.data.datasets[0].data.shift();
+        }
+        luxChartInstance.update('none');
+        voltChartInstance.update('none');
+    })
+    .catch(err => console.log("Menunggu koneksi Flask..."));
+}, 1000);
+    </script>
+</body>
+</html>
