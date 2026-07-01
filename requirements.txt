@@ -5,6 +5,7 @@ contourpy
 cycler
 et_xmlfile
 Flask
+gunicorn
 fonttools
 itsdangerous
 Jinja2
